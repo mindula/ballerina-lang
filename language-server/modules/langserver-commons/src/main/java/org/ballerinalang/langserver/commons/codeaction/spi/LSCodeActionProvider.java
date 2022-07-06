@@ -20,6 +20,7 @@ import org.ballerinalang.langserver.commons.CodeActionContext;
 import org.ballerinalang.langserver.commons.CodeActionResolveContext;
 import org.ballerinalang.langserver.commons.LanguageServerContext;
 import org.ballerinalang.langserver.commons.codeaction.CodeActionNodeType;
+import org.ballerinalang.langserver.commons.codeaction.ResolvableCodeAction;
 import org.eclipse.lsp4j.CodeAction;
 
 import java.util.List;
@@ -113,7 +114,7 @@ public interface LSCodeActionProvider {
         return true;
     }
 
-    default CodeAction resolve(CodeAction codeAction, CodeActionResolveContext resolveContext) {
+    default CodeAction resolve(ResolvableCodeAction codeAction, CodeActionResolveContext resolveContext) {
         return codeAction;
     }
 }

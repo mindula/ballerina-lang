@@ -27,7 +27,7 @@ import io.ballerina.compiler.syntax.tree.SyntaxTree;
 import io.ballerina.tools.text.LinePosition;
 import org.ballerinalang.langserver.LSClientLogger;
 import org.ballerinalang.langserver.LSContextOperation;
-import org.ballerinalang.langserver.codeaction.providers.ResolvableCodeAction;
+import org.ballerinalang.langserver.commons.codeaction.ResolvableCodeAction;
 import org.ballerinalang.langserver.common.utils.CommonUtil;
 import org.ballerinalang.langserver.common.utils.PositionUtil;
 import org.ballerinalang.langserver.common.utils.SymbolUtil;
@@ -140,12 +140,12 @@ public class CodeActionRouter {
         return codeActions;
     }
 
-    public static CodeAction resolveCodeAction(CodeAction codeAction,
+    public static CodeAction resolveCodeAction(ResolvableCodeAction codeAction,
                                                CodeActionResolveContext resolveContext) {
         CodeActionProvidersHolder codeActionProvidersHolder = CodeActionProvidersHolder
                 .getInstance(resolveContext.languageServercontext());
-        String codeActionName = ResolvableCodeAction.from(codeAction).getData().getCodeActionName();
-        Optional<LSCodeActionProvider> provider = codeActionProvidersHolder.getProviderByName(codeActionName);
+        Optional<LSCodeActionProvider> provider = codeActionProvidersHolder.getProviderByName(
+                codeAction.getData().getCodeActionName());
         CodeAction action = codeAction;
         if (provider.isPresent()) {
             action = provider.get().resolve(codeAction, resolveContext);

@@ -17,7 +17,7 @@
  */
 package org.ballerinalang.langserver;
 
-import org.ballerinalang.langserver.codeaction.providers.ResolvableCodeAction;
+import org.ballerinalang.langserver.commons.codeaction.ResolvableCodeAction;
 import org.ballerinalang.langserver.common.utils.CommonUtil;
 import org.ballerinalang.langserver.commons.CodeActionContext;
 import org.ballerinalang.langserver.commons.CodeActionExtension;
