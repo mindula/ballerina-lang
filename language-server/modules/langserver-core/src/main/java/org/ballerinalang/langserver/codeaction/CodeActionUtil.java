@@ -62,6 +62,7 @@ import io.ballerina.tools.text.TextRange;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.ballerinalang.langserver.codeaction.providers.ResolvableCodeAction;
 import org.ballerinalang.langserver.common.ImportsAcceptor;
 import org.ballerinalang.langserver.common.utils.CommonUtil;
 import org.ballerinalang.langserver.common.utils.FunctionGenerator;
@@ -70,6 +71,7 @@ import org.ballerinalang.langserver.commons.CodeActionContext;
 import org.ballerinalang.langserver.commons.codeaction.CodeActionNodeType;
 import org.ballerinalang.langserver.commons.codeaction.spi.DiagBasedPositionDetails;
 import org.ballerinalang.langserver.commons.codeaction.spi.NodeBasedPositionDetails;
+import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.DiagnosticSeverity;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
@@ -1054,5 +1056,17 @@ public class CodeActionUtil {
             return Optional.ofNullable((T) diagnosticProperty.value());
         };
         return filterFunction;
+    }
+
+    public static CodeAction createCodeAction(String commandTitle, List<TextEdit> edits,
+                                              String codeActionKind,
+                                              ResolvableCodeAction.CodeActionData data) {
+
+        List<Diagnostic> diagnostics = new ArrayList<>();
+        ResolvableCodeAction action = new ResolvableCodeAction(commandTitle);
+        action.setDiagnostics(CodeActionUtil.toDiagnostics(diagnostics));
+        action.setKind(codeActionKind);
+        action.setData(data);
+        return action;
     }
 }

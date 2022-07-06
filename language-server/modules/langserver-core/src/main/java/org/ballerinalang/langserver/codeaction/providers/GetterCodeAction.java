@@ -72,7 +72,7 @@ public class GetterCodeAction extends AbstractCodeActionProvider {
 
     @Override
     public String getName() {
-        return null;
+        return NAME;
     }
 
 }

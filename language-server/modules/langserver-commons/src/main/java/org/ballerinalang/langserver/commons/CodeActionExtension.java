@@ -37,4 +37,9 @@ public interface CodeActionExtension
     default LanguageFeatureKind kind() {
         return LanguageFeatureKind.CODEACTION;
     }
+
+    default CodeAction resolve(CodeAction codeAction, CodeActionResolveContext resolveContext) {
+        return codeAction;
+    }
+
 }

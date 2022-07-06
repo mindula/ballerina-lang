@@ -21,11 +21,15 @@ import io.ballerina.tools.text.LinePosition;
 import io.ballerina.tools.text.LineRange;
 import org.ballerinalang.formatter.core.Formatter;
 import org.ballerinalang.formatter.core.FormatterException;
+import org.ballerinalang.langserver.codeaction.providers.ResolvableCodeAction;
 import org.ballerinalang.langserver.codelenses.CodeLensUtil;
 import org.ballerinalang.langserver.codelenses.LSCodeLensesProviderHolder;
 import org.ballerinalang.langserver.common.utils.PathUtil;
 import org.ballerinalang.langserver.commons.BallerinaDefinitionContext;
 import org.ballerinalang.langserver.commons.CodeActionContext;
+import org.ballerinalang.langserver.commons.CodeActionContext;
+import org.ballerinalang.langserver.commons.CodeActionResolveContext;
+import org.ballerinalang.langserver.commons.CompletionContext;
 import org.ballerinalang.langserver.commons.CompletionContext;
 import org.ballerinalang.langserver.commons.DocumentServiceContext;
 import org.ballerinalang.langserver.commons.DocumentSymbolContext;
@@ -343,6 +347,18 @@ class BallerinaTextDocumentService implements TextDocumentService {
                         range.getStart(), range.getEnd());
             }
             return Collections.emptyList();
+        });
+    }
+
+    @Override
+    public CompletableFuture<CodeAction> resolveCodeAction(CodeAction codeAction) {
+        return CompletableFutures.computeAsync((cancelChecker) -> {
+            CodeActionResolveContext resolveContext = ContextBuilder.buildCodeActionResolveContext(
+                    workspaceManagerProxy.get(),
+                    this.serverContext,
+                    cancelChecker);
+            ResolvableCodeAction resolvableCodeAction = ResolvableCodeAction.from(codeAction);
+            return LangExtensionDelegator.instance().resolveCodeAction(resolvableCodeAction, resolveContext);
         });
     }
 

@@ -18,15 +18,23 @@ package org.ballerinalang.langserver.codeaction.providers.createvar;
 import io.ballerina.compiler.api.symbols.Symbol;
 import io.ballerina.compiler.api.symbols.TypeDescKind;
 import io.ballerina.compiler.api.symbols.TypeSymbol;
+import io.ballerina.compiler.syntax.tree.SyntaxTree;
 import io.ballerina.tools.diagnostics.Diagnostic;
+import io.ballerina.tools.text.LinePosition;
+import io.ballerina.tools.text.TextDocument;
+import io.ballerina.tools.text.TextDocumentChange;
+import io.ballerina.tools.text.TextRange;
 import org.ballerinalang.annotation.JavaSPIService;
 import org.ballerinalang.langserver.codeaction.CodeActionNodeValidator;
 import org.ballerinalang.langserver.codeaction.CodeActionUtil;
 import org.ballerinalang.langserver.codeaction.providers.AbstractCodeActionProvider;
+import org.ballerinalang.langserver.codeaction.providers.ResolvableCodeAction;
 import org.ballerinalang.langserver.common.constants.CommandConstants;
 import org.ballerinalang.langserver.common.utils.NameUtil;
+import org.ballerinalang.langserver.common.utils.PathUtil;
 import org.ballerinalang.langserver.common.utils.PositionUtil;
 import org.ballerinalang.langserver.commons.CodeActionContext;
+import org.ballerinalang.langserver.commons.CodeActionResolveContext;
 import org.ballerinalang.langserver.commons.codeaction.spi.DiagBasedPositionDetails;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionKind;
@@ -34,6 +42,7 @@ import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
 import org.eclipse.lsp4j.TextEdit;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -96,7 +105,10 @@ public class CreateVariableCodeAction extends AbstractCodeActionProvider {
                 String typeLabel = isTuple && type.length() > 10 ? "Tuple" : type;
                 commandTitle = String.format(CommandConstants.CREATE_VARIABLE_TITLE + " with '%s'", typeLabel);
             }
-            actions.add(createCodeAction(commandTitle, edits, uri, CodeActionKind.QuickFix));
+            ResolvableCodeAction.CodeActionData data = new ResolvableCodeAction.CodeActionData(getName(), uri, range,
+                    edits.get(0).getNewText());
+//            actions.add(createCodeAction(commandTitle, edits, uri, CodeActionKind.QuickFix));
+            actions.add(CodeActionUtil.createCodeAction(commandTitle, edits, CodeActionKind.QuickFix, data));
         }
         return actions;
     }
@@ -143,5 +155,38 @@ public class CreateVariableCodeAction extends AbstractCodeActionProvider {
             this.edits = edits;
             this.imports = imports;
         }
+    }
+
+    @Override
+    public CodeAction resolve(CodeAction codeAction, CodeActionResolveContext resolveContext) {
+        ResolvableCodeAction resolvableCodeAction = ResolvableCodeAction.from(codeAction);
+        ResolvableCodeAction.CodeActionData data = resolvableCodeAction.getData();
+        Object actionData = data.getActionData();
+
+        Optional<Path> filePath = PathUtil.getPathFromURI(data.getFileUri());
+        if (filePath.isEmpty()) {
+            return null;
+        }
+        Optional<SyntaxTree> syntaxTree = resolveContext.workspace().syntaxTree(filePath.get());
+        if (syntaxTree.isEmpty()) {
+            return null;
+        }
+
+        TextDocument textDocument = syntaxTree.get().textDocument();
+        Position rangeStart = data.getRange().getStart();
+        Position rangeEnd = data.getRange().getEnd();
+        int start = textDocument.textPositionFrom(LinePosition.from(rangeStart.getLine(), rangeStart.getCharacter()));
+        int end = textDocument.textPositionFrom(LinePosition.from(rangeEnd.getLine(), rangeEnd.getCharacter()));
+
+        io.ballerina.tools.text.TextEdit textEdit = io.ballerina.tools.text.TextEdit.from(TextRange.from(start,
+                0), String.valueOf(actionData));
+
+        TextDocumentChange documentChange = TextDocumentChange.from(new io.ballerina.tools.text.TextEdit[]{textEdit});
+        TextDocument document = textDocument.apply(documentChange);
+
+        int s = documentChange.getTextEdit(0).text().indexOf("intWithError");
+        int o = start + s;
+
+        return super.resolve(codeAction, resolveContext);
     }
 }

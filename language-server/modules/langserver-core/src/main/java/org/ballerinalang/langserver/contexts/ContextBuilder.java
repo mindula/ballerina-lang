@@ -21,6 +21,9 @@ import org.ballerinalang.langserver.BallerinaLanguageServer;
 import org.ballerinalang.langserver.LSContextOperation;
 import org.ballerinalang.langserver.commons.BallerinaDefinitionContext;
 import org.ballerinalang.langserver.commons.CodeActionContext;
+import org.ballerinalang.langserver.commons.CodeActionContext;
+import org.ballerinalang.langserver.commons.CodeActionResolveContext;
+import org.ballerinalang.langserver.commons.CompletionContext;
 import org.ballerinalang.langserver.commons.CompletionContext;
 import org.ballerinalang.langserver.commons.DidChangeWatchedFilesContext;
 import org.ballerinalang.langserver.commons.DocumentServiceContext;
@@ -233,6 +236,16 @@ public class ContextBuilder {
                 .withCancelChecker(cancelChecker)
                 .build();
     }
+
+    public static CodeActionResolveContext buildCodeActionResolveContext(WorkspaceManager workspaceManager,
+                                                                         LanguageServerContext serverContext,
+                                                                         CancelChecker cancelChecker) {
+        return new CodeActionResolveContextImpl.CodeActionResolveContextBuilder(serverContext)
+                .withWorkspaceManager(workspaceManager)
+                .withCancelChecker(cancelChecker)
+                .build();
+    }
+
 
     /**
      * Build the hover context.

@@ -17,6 +17,7 @@ package org.ballerinalang.langserver.commons.codeaction.spi;
 
 import io.ballerina.tools.diagnostics.Diagnostic;
 import org.ballerinalang.langserver.commons.CodeActionContext;
+import org.ballerinalang.langserver.commons.CodeActionResolveContext;
 import org.ballerinalang.langserver.commons.LanguageServerContext;
 import org.ballerinalang.langserver.commons.codeaction.CodeActionNodeType;
 import org.eclipse.lsp4j.CodeAction;
@@ -110,5 +111,9 @@ public interface LSCodeActionProvider {
                              DiagBasedPositionDetails positionDetails,
                              CodeActionContext context) {
         return true;
+    }
+
+    default CodeAction resolve(CodeAction codeAction, CodeActionResolveContext resolveContext) {
+        return codeAction;
     }
 }

@@ -27,12 +27,16 @@ import io.ballerina.compiler.syntax.tree.SyntaxTree;
 import io.ballerina.tools.text.LinePosition;
 import org.ballerinalang.langserver.LSClientLogger;
 import org.ballerinalang.langserver.LSContextOperation;
+import org.ballerinalang.langserver.codeaction.providers.ResolvableCodeAction;
 import org.ballerinalang.langserver.common.utils.CommonUtil;
 import org.ballerinalang.langserver.common.utils.PositionUtil;
 import org.ballerinalang.langserver.common.utils.SymbolUtil;
 import org.ballerinalang.langserver.commons.CodeActionContext;
+import org.ballerinalang.langserver.commons.CodeActionResolveContext;
+import org.ballerinalang.langserver.commons.LanguageServerContext;
 import org.ballerinalang.langserver.commons.codeaction.CodeActionNodeType;
 import org.ballerinalang.langserver.commons.codeaction.spi.DiagBasedPositionDetails;
+import org.ballerinalang.langserver.commons.codeaction.spi.LSCodeActionProvider;
 import org.ballerinalang.langserver.commons.codeaction.spi.NodeBasedPositionDetails;
 import org.ballerinalang.langserver.telemetry.TelemetryUtil;
 import org.eclipse.lsp4j.CodeAction;
@@ -135,6 +139,20 @@ public class CodeActionRouter {
                             });
                 });
         return codeActions;
+    }
+
+    public static CodeAction resolveCodeAction(CodeAction codeAction,
+                                               CodeActionResolveContext resolveContext) {
+        CodeActionProvidersHolder codeActionProvidersHolder = CodeActionProvidersHolder
+                .getInstance(resolveContext.languageServercontext());
+        String codeActionName = ResolvableCodeAction.from(codeAction).getData().getCodeActionName();
+        Optional<LSCodeActionProvider> provider = codeActionProvidersHolder.getProviderByName(codeActionName);
+        CodeAction action = new CodeAction();
+        if (provider.isPresent()) {
+            action = provider.get().resolve(codeAction, resolveContext);
+        }
+
+        return action;
     }
 
     private static NonTerminalNode matchedStatementNode(CodeActionContext ctx, SyntaxTree syntaxTree) {

@@ -17,9 +17,11 @@
  */
 package org.ballerinalang.langserver;
 
+import org.ballerinalang.langserver.codeaction.providers.ResolvableCodeAction;
 import org.ballerinalang.langserver.common.utils.CommonUtil;
 import org.ballerinalang.langserver.commons.CodeActionContext;
 import org.ballerinalang.langserver.commons.CodeActionExtension;
+import org.ballerinalang.langserver.commons.CodeActionResolveContext;
 import org.ballerinalang.langserver.commons.CompletionContext;
 import org.ballerinalang.langserver.commons.CompletionExtension;
 import org.ballerinalang.langserver.commons.DiagnosticsExtension;
@@ -164,11 +166,30 @@ public class LangExtensionDelegator {
         for (CodeActionExtension ext : codeActionsExtensions) {
             if (this.handleURIScheme(uri, ext.handledCustomURISchemes(params, context, serverContext))
                     && ext.validate(params)) {
-                actions.addAll(ext.execute(params, context, serverContext));
+                List<? extends CodeAction> codeActions = ext.execute(params, context, serverContext);
+                for (CodeAction codeAction : codeActions) {
+                    ResolvableCodeAction action = ResolvableCodeAction.from(codeAction);
+                    if (codeAction instanceof ResolvableCodeAction) {
+                        action.getData().setExtName(ext.getClass().getName());
+                        actions.add(action);
+                    } else {
+                        actions.add(action);
+                    }
+                }
             }
         }
 
         return actions;
+    }
+
+    public CodeAction resolveCodeAction(ResolvableCodeAction resolvableCodeAction,
+                                        CodeActionResolveContext resolveContext) {
+        for (CodeActionExtension ext : codeActionsExtensions) {
+            if (ext.getClass().getName().equals(resolvableCodeAction.getData().getExtName())) {
+                return ext.resolve(resolvableCodeAction, resolveContext);
+            }
+        }
+        throw new IllegalStateException("Extension not found: " + resolvableCodeAction.getData().getExtName());
     }
 
     /**
