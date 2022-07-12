@@ -15,21 +15,24 @@
  */
 package org.ballerinalang.langserver.codeaction.providers.createvar;
 
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import io.ballerina.compiler.api.symbols.Symbol;
 import io.ballerina.compiler.api.symbols.TypeDescKind;
 import io.ballerina.compiler.api.symbols.TypeSymbol;
+import io.ballerina.compiler.syntax.tree.NonTerminalNode;
 import io.ballerina.compiler.syntax.tree.SyntaxTree;
+import io.ballerina.compiler.syntax.tree.TypedBindingPatternNode;
 import io.ballerina.tools.diagnostics.Diagnostic;
-import io.ballerina.tools.text.LinePosition;
 import io.ballerina.tools.text.TextDocument;
 import io.ballerina.tools.text.TextDocumentChange;
-import io.ballerina.tools.text.TextRange;
 import org.ballerinalang.annotation.JavaSPIService;
 import org.ballerinalang.langserver.codeaction.CodeActionNodeValidator;
 import org.ballerinalang.langserver.codeaction.CodeActionUtil;
 import org.ballerinalang.langserver.codeaction.providers.AbstractCodeActionProvider;
 import org.ballerinalang.langserver.codeaction.providers.ResolvableCodeAction;
 import org.ballerinalang.langserver.common.constants.CommandConstants;
+import org.ballerinalang.langserver.common.utils.CommonUtil;
 import org.ballerinalang.langserver.common.utils.NameUtil;
 import org.ballerinalang.langserver.common.utils.PathUtil;
 import org.ballerinalang.langserver.common.utils.PositionUtil;
@@ -38,13 +41,22 @@ import org.ballerinalang.langserver.commons.CodeActionResolveContext;
 import org.ballerinalang.langserver.commons.codeaction.spi.DiagBasedPositionDetails;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.CodeActionKind;
+import org.eclipse.lsp4j.Command;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
+import org.eclipse.lsp4j.TextDocumentEdit;
 import org.eclipse.lsp4j.TextEdit;
+import org.eclipse.lsp4j.VersionedTextDocumentIdentifier;
+import org.eclipse.lsp4j.WorkspaceEdit;
+import org.eclipse.lsp4j.jsonrpc.messages.Either;
 
+import java.lang.reflect.Type;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -105,10 +117,15 @@ public class CreateVariableCodeAction extends AbstractCodeActionProvider {
                 String typeLabel = isTuple && type.length() > 10 ? "Tuple" : type;
                 commandTitle = String.format(CommandConstants.CREATE_VARIABLE_TITLE + " with '%s'", typeLabel);
             }
+
+            Map<String, Object> variableData = new HashMap<>();
+            variableData.put("textEdits", edits);
+            variableData.put("position", context.cursorPosition());
+
             ResolvableCodeAction.CodeActionData data = new ResolvableCodeAction.CodeActionData(getName(), uri, range,
-                    edits.get(0).getNewText());
+                    variableData);
 //            actions.add(createCodeAction(commandTitle, edits, uri, CodeActionKind.QuickFix));
-            actions.add(CodeActionUtil.createCodeAction(commandTitle, edits, CodeActionKind.QuickFix, data));
+            actions.add(CodeActionUtil.createCodeAction(commandTitle, CodeActionKind.QuickFix, data));
         }
         return actions;
     }
@@ -162,31 +179,79 @@ public class CreateVariableCodeAction extends AbstractCodeActionProvider {
         ResolvableCodeAction resolvableCodeAction = ResolvableCodeAction.from(codeAction);
         ResolvableCodeAction.CodeActionData data = resolvableCodeAction.getData();
         Object actionData = data.getActionData();
+        CreateVariableData variableData = CreateVariableData.from(actionData);
 
         Optional<Path> filePath = PathUtil.getPathFromURI(data.getFileUri());
         if (filePath.isEmpty()) {
-            return null;
+            return codeAction;
         }
         Optional<SyntaxTree> syntaxTree = resolveContext.workspace().syntaxTree(filePath.get());
         if (syntaxTree.isEmpty()) {
-            return null;
+            return codeAction;
         }
 
-        TextDocument textDocument = syntaxTree.get().textDocument();
-        Position rangeStart = data.getRange().getStart();
-        Position rangeEnd = data.getRange().getEnd();
-        int start = textDocument.textPositionFrom(LinePosition.from(rangeStart.getLine(), rangeStart.getCharacter()));
-        int end = textDocument.textPositionFrom(LinePosition.from(rangeEnd.getLine(), rangeEnd.getCharacter()));
+        List<TextEdit> textEdits = variableData.getTextEdits();
+        io.ballerina.tools.text.TextEdit textEdit = PositionUtil.getTextEdit(syntaxTree.get(), textEdits.get(0));
+        int startOffset = textEdit.range().startOffset();
+        List<io.ballerina.tools.text.TextEdit> editList = new ArrayList<>();
+        editList.add(textEdit);
 
-        io.ballerina.tools.text.TextEdit textEdit = io.ballerina.tools.text.TextEdit.from(TextRange.from(start,
-                0), String.valueOf(actionData));
+        if (textEdits.size() > 1) {
+            int sum = 0;
+            for (int i = 1; i < textEdits.size(); i++) {
+                io.ballerina.tools.text.TextEdit edits = PositionUtil.getTextEdit(syntaxTree.get(), textEdits.get(i));
+                int offset = edits.range().startOffset();
+                if (offset < startOffset) {
+                    int length = edits.text().length();
+                    sum = sum + length;
+                }
+                editList.add(edits);
+            }
+            startOffset = startOffset + sum;
+        }
 
-        TextDocumentChange documentChange = TextDocumentChange.from(new io.ballerina.tools.text.TextEdit[]{textEdit});
-        TextDocument document = textDocument.apply(documentChange);
+        TextDocumentChange documentChange = TextDocumentChange.from(editList.toArray(
+                new io.ballerina.tools.text.TextEdit[]{}));
+        TextDocument modifiedDoc = syntaxTree.get().textDocument().apply(documentChange);
+        SyntaxTree updatedTree = SyntaxTree.from(modifiedDoc);
+        NonTerminalNode node = CommonUtil.findNode(data.getRange(), updatedTree);
+        int length = 0;
 
-        int s = documentChange.getTextEdit(0).text().indexOf("intWithError");
-        int o = start + s;
+        TypedBindingPatternNode typedBindingPatternNode = (TypedBindingPatternNode) node;
+        length = typedBindingPatternNode.typeDescriptor().textRange().length() + 1;
+        int startPos = startOffset + length;
 
-        return super.resolve(codeAction, resolveContext);
+        codeAction.setCommand(new Command("Rename", "ballerina.action.rename",
+                List.of(data.getFileUri(), startPos)));
+
+        codeAction.setData(null);
+        codeAction.setEdit(new WorkspaceEdit(Collections.singletonList(Either.forLeft(
+                new TextDocumentEdit(new VersionedTextDocumentIdentifier(data.getFileUri(), null), textEdits)))));
+        return codeAction;
+    }
+
+    public static class CreateVariableData {
+        private static final Gson GSON = new Gson();
+        List<TextEdit> textEdits;
+        Position position;
+
+        public CreateVariableData(List<TextEdit> textEdits, Position position) {
+            this.textEdits = textEdits;
+            this.position = position;
+        }
+
+        public List<TextEdit> getTextEdits() {
+            return textEdits;
+        }
+
+        public Position getPosition() {
+            return position;
+        }
+
+        public static CreateVariableData from(Object jsonObj) {
+            Type gsonType = new TypeToken<HashMap>(){}.getType();
+            String toJson = GSON.toJson(jsonObj, gsonType);
+            return GSON.fromJson(toJson, CreateVariableData.class);
+        }
     }
 }

@@ -17,11 +17,10 @@ package org.ballerinalang.langserver.common.utils;
 
 import io.ballerina.compiler.syntax.tree.ModulePartNode;
 import io.ballerina.compiler.syntax.tree.Node;
+import io.ballerina.compiler.syntax.tree.SyntaxTree;
 import io.ballerina.compiler.syntax.tree.Token;
 import io.ballerina.projects.Document;
-import io.ballerina.tools.text.LinePosition;
-import io.ballerina.tools.text.LineRange;
-import io.ballerina.tools.text.TextDocument;
+import io.ballerina.tools.text.*;
 import org.ballerinalang.langserver.commons.DocumentServiceContext;
 import org.eclipse.lsp4j.Position;
 import org.eclipse.lsp4j.Range;
@@ -160,5 +159,14 @@ public class PositionUtil {
         int txtPos = textDocument.textPositionFrom(LinePosition.from(position.getLine(), position.getCharacter()));
         Token tokenAtPosition = ((ModulePartNode) document.get().syntaxTree().rootNode()).findToken(txtPos, true);
         return Optional.ofNullable(tokenAtPosition);
+    }
+
+    public static TextEdit getTextEdit(SyntaxTree syntaxTree, org.eclipse.lsp4j.TextEdit textEdit) {
+        TextDocument textDocument = syntaxTree.textDocument();
+        Position startPos = textEdit.getRange().getStart();
+        Position endPos = textEdit.getRange().getEnd();
+        int start = textDocument.textPositionFrom(LinePosition.from(startPos.getLine(), startPos.getCharacter()));
+        int end = textDocument.textPositionFrom(LinePosition.from(endPos.getLine(), endPos.getCharacter()));
+        return TextEdit.from(TextRange.from(start, end-start), textEdit.getNewText());
     }
 }

@@ -33,7 +33,6 @@ import org.ballerinalang.langserver.common.utils.PositionUtil;
 import org.ballerinalang.langserver.common.utils.SymbolUtil;
 import org.ballerinalang.langserver.commons.CodeActionContext;
 import org.ballerinalang.langserver.commons.CodeActionResolveContext;
-import org.ballerinalang.langserver.commons.LanguageServerContext;
 import org.ballerinalang.langserver.commons.codeaction.CodeActionNodeType;
 import org.ballerinalang.langserver.commons.codeaction.spi.DiagBasedPositionDetails;
 import org.ballerinalang.langserver.commons.codeaction.spi.LSCodeActionProvider;
@@ -147,7 +146,7 @@ public class CodeActionRouter {
                 .getInstance(resolveContext.languageServercontext());
         String codeActionName = ResolvableCodeAction.from(codeAction).getData().getCodeActionName();
         Optional<LSCodeActionProvider> provider = codeActionProvidersHolder.getProviderByName(codeActionName);
-        CodeAction action = new CodeAction();
+        CodeAction action = codeAction;
         if (provider.isPresent()) {
             action = provider.get().resolve(codeAction, resolveContext);
         }

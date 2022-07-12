@@ -1,7 +1,6 @@
 package org.ballerinalang.langserver.codeaction.providers;
 
 import com.google.gson.Gson;
-import org.ballerinalang.langserver.codeaction.providers.createvar.CreateVariableCodeAction;
 import org.eclipse.lsp4j.CodeAction;
 import org.eclipse.lsp4j.Range;
 

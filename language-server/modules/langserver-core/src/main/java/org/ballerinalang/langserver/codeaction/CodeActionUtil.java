@@ -1058,8 +1058,7 @@ public class CodeActionUtil {
         return filterFunction;
     }
 
-    public static CodeAction createCodeAction(String commandTitle, List<TextEdit> edits,
-                                              String codeActionKind,
+    public static CodeAction createCodeAction(String commandTitle, String codeActionKind,
                                               ResolvableCodeAction.CodeActionData data) {
 
         List<Diagnostic> diagnostics = new ArrayList<>();
